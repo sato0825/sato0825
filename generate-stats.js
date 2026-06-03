@@ -169,9 +169,9 @@ function buildIdentity(d) {
   <text x="116" y="110" font-size="12.5" fill="#B7ABC6">⚑ ${esc(
     d.location || "—"
   )}<tspan dx="14">◷ on github since ${d.since}</tspan></text>
-  <line x1="540" y1="44" x2="540" y2="104" stroke="#EFE6F0" stroke-width="1.5"/>
-  ${stat(588, repos, "repositories")}${stat(694, kfmt(d.followers), "followers")}${stat(
-    790,
+  <line x1="515" y1="44" x2="515" y2="104" stroke="#EFE6F0" stroke-width="1.5"/>
+  ${stat(575, repos, "repositories")}${stat(670, kfmt(d.followers), "followers")}${stat(
+    765,
     kfmt(d.totalContributions),
     "contributions"
   )}</svg>`;

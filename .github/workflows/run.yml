@@ -6,10 +6,7 @@ on:
     - cron: "0 18 * * *"
   workflow_dispatch: {} # 手動実行も可能
   push:
-    branches: [main]
-    paths:
-      - "generate-stats.js"
-      - ".github/workflows/run.yml"
+    branches: [main] # main への push 全てで生成（commit メッセージの [skip ci] でループ防止）
 
 permissions:
   contents: write

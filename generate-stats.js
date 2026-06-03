@@ -51,11 +51,23 @@ query ($login: String!) {
         languages(first: 8, orderBy: {field: SIZE, direction: DESC}) {
           edges { size node { name color } }
         }
+      }
+    }
+  }
+}
+`;
+
+// 履歴は additions/deletions の差分計算が重いので、範囲を絞って別クエリで取得
+const HISTORY_QUERY = `
+query ($login: String!) {
+  user(login: $login) {
+    repositories(first: 40, ownerAffiliations: OWNER, isFork: false, orderBy: {field: PUSHED_AT, direction: DESC}) {
+      nodes {
         defaultBranchRef {
           target {
             ... on Commit {
-              history(first: 100, author: {id: $userId}) {
-                nodes { committedDate }
+              history(first: 50, author: {id: $userId}) {
+                nodes { committedDate additions deletions changedFiles }
               }
             }
           }
@@ -314,6 +326,69 @@ function buildWork(d) {
   ${stats}</svg>`;
 }
 
+// =================== code（コード増減） ===================
+function buildCode(d) {
+  const GREEN = "#5FB98A",
+    RED = "#E78A8A";
+  const net = d.codeAdd - d.codeDel;
+  // 増減バー（合計に対する割合・最小幅を確保して両方見えるように）
+  const total = d.codeAdd + d.codeDel || 1;
+  const barX = 552,
+    barW = 256;
+  let gw = (d.codeAdd / total) * barW;
+  gw = Math.max(8, Math.min(barW - 8, gw)); // どちらか 0 でも見えるよう端を確保
+
+  const row = (y, label, value, color) =>
+    `<text x="552" y="${y}" font-size="13" fill="#8B8197">${label}</text><text x="808" y="${y}" text-anchor="end" font-size="15" font-weight="700" fill="${color}">${esc(
+      value
+    )}</text>`;
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="840" height="180" viewBox="0 0 840 180"><defs>${DEFS}<clipPath id="cbar"><rect x="${barX}" y="64" width="${barW}" height="13" rx="6.5"/></clipPath></defs>
+  <rect x="6" y="6" width="828" height="168" rx="26" fill="url(#card)" stroke="#EFE0EE" stroke-width="2" filter="url(#sh)"/>
+  <text x="32" y="46" font-size="11" letter-spacing="2.5" font-weight="700" fill="#B7ABC6">CODE CHANGED · LAST YEAR</text>
+
+  <text x="32" y="100" font-size="40" font-weight="700" fill="${GREEN}">+${comma(d.codeAdd)}</text>
+  <text x="34" y="124" font-size="12.5" fill="#B7ABC6">lines added</text>
+  <text x="300" y="100" font-size="40" font-weight="700" fill="${RED}">−${comma(d.codeDel)}</text>
+  <text x="302" y="124" font-size="12.5" fill="#B7ABC6">lines removed</text>
+
+  <line x1="520" y1="40" x2="520" y2="156" stroke="#EFE6F0" stroke-width="1.5"/>
+
+  <g clip-path="url(#cbar)"><rect x="${barX}" y="64" width="${barW}" height="13" fill="${RED}"/><rect x="${barX}" y="64" width="${gw.toFixed(
+    1
+  )}" height="13" fill="${GREEN}"/></g>
+  <circle cx="558" cy="96" r="5" fill="${GREEN}"/><text x="570" y="100" font-size="13" fill="#5E5470">additions</text>
+  <circle cx="664" cy="96" r="5" fill="${RED}"/><text x="676" y="100" font-size="13" fill="#5E5470">deletions</text>
+
+  <line x1="552" y1="116" x2="808" y2="116" stroke="#EFE6F0" stroke-width="1"/>
+  ${row(138, "files changed", comma(d.codeFiles), "#4A4060")}
+  <line x1="552" y1="152" x2="808" y2="152" stroke="#EFE6F0" stroke-width="1"/>
+  ${row(170, "net change", (net >= 0 ? "+" : "−") + comma(Math.abs(net)), net >= 0 ? GREEN : RED)}</svg>`;
+}
+
+// 履歴クエリの結果から、時間帯別コミットと直近1年のコード増減を集計
+function computeCommitStats(repoNodes) {
+  const hours = new Array(24).fill(0);
+  let codeAdd = 0,
+    codeDel = 0,
+    codeFiles = 0;
+  const yearAgo = Date.now() - 365 * 24 * 60 * 60 * 1000;
+  for (const r of repoNodes) {
+    const hist = r.defaultBranchRef && r.defaultBranchRef.target && r.defaultBranchRef.target.history;
+    if (!hist) continue;
+    for (const node of hist.nodes) {
+      const m = /T(\d{2}):/.exec(node.committedDate); // ISO のローカル時（オフセット込み表記）の hour
+      if (m) hours[parseInt(m[1], 10)]++;
+      if (new Date(node.committedDate).getTime() >= yearAgo) {
+        codeAdd += node.additions || 0;
+        codeDel += node.deletions || 0;
+        codeFiles += node.changedFiles || 0;
+      }
+    }
+  }
+  return { hours, codeAdd, codeDel, codeFiles };
+}
+
 // ---- 取得データの整形 ----
 function summarize(user) {
   const c = user.contributionsCollection;
@@ -332,17 +407,6 @@ function summarize(user) {
   }
   const topLangs = Object.values(langBytes).sort((a, b) => b.size - a.size);
 
-  // コミットの時間帯（committedDate のローカル時刻の hour を集計）
-  const hours = new Array(24).fill(0);
-  for (const r of repos) {
-    const hist = r.defaultBranchRef && r.defaultBranchRef.target && r.defaultBranchRef.target.history;
-    if (!hist) continue;
-    for (const node of hist.nodes) {
-      const m = /T(\d{2}):/.exec(node.committedDate); // ISO のローカル時（オフセット込み表記）の hour
-      if (m) hours[parseInt(m[1], 10)]++;
-    }
-  }
-
   return {
     name: user.name,
     login: user.login,
@@ -353,7 +417,6 @@ function summarize(user) {
     repos: user.repositories,
     totalStars,
     topLangs,
-    hours,
     commits: c.totalCommitContributions,
     prs: c.totalPullRequestContributions,
     issues: c.totalIssueContributions,
@@ -372,12 +435,19 @@ function summarize(user) {
     const query = QUERY.replace("$userId", JSON.stringify(userId));
     const data = await graphql(query, { login: USER });
 
+    // 履歴（additions/deletions）は重いので範囲を絞った別クエリで取得
+    const histQuery = HISTORY_QUERY.replace("$userId", JSON.stringify(userId));
+    const histData = await graphql(histQuery, { login: USER });
+    const commitStats = computeCommitStats(histData.user.repositories.nodes);
+
     const avatar = await fetchAvatarDataUri(data.user.avatarUrl);
     const s = summarize(data.user);
+    Object.assign(s, commitStats);
     s.avatar = avatar;
     if (!fs.existsSync("cards")) fs.mkdirSync("cards");
     fs.writeFileSync("cards/identity.svg", buildIdentity(s));
     fs.writeFileSync("cards/year.svg", buildYear(s));
+    fs.writeFileSync("cards/code.svg", buildCode(s));
     fs.writeFileSync("cards/work.svg", buildWork(s));
     console.log(
       `生成完了: contributions=${s.totalContributions}, commits=${s.commits}, langs=${s.topLangs

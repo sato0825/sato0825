@@ -339,31 +339,31 @@ function buildCode(d) {
   gw = Math.max(8, Math.min(barW - 8, gw)); // どちらか 0 でも見えるよう端を確保
 
   const row = (y, label, value, color) =>
-    `<text x="552" y="${y}" font-size="13" fill="#8B8197">${label}</text><text x="808" y="${y}" text-anchor="end" font-size="15" font-weight="700" fill="${color}">${esc(
+    `<text x="552" y="${y}" font-size="12.5" fill="#8B8197">${label}</text><text x="808" y="${y}" text-anchor="end" font-size="14" font-weight="700" fill="${color}">${esc(
       value
     )}</text>`;
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="840" height="180" viewBox="0 0 840 180"><defs>${DEFS}<clipPath id="cbar"><rect x="${barX}" y="64" width="${barW}" height="13" rx="6.5"/></clipPath></defs>
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="840" height="180" viewBox="0 0 840 180"><defs>${DEFS}<clipPath id="cbar"><rect x="${barX}" y="42" width="${barW}" height="12" rx="6"/></clipPath></defs>
   <rect x="6" y="6" width="828" height="168" rx="26" fill="url(#card)" stroke="#EFE0EE" stroke-width="2" filter="url(#sh)"/>
   <text x="32" y="46" font-size="11" letter-spacing="2.5" font-weight="700" fill="#B7ABC6">CODE CHANGED · LAST YEAR</text>
 
-  <text x="32" y="100" font-size="40" font-weight="700" fill="${GREEN}">+${comma(d.codeAdd)}</text>
-  <text x="34" y="124" font-size="12.5" fill="#B7ABC6">lines added</text>
-  <text x="300" y="100" font-size="40" font-weight="700" fill="${RED}">−${comma(d.codeDel)}</text>
-  <text x="302" y="124" font-size="12.5" fill="#B7ABC6">lines removed</text>
+  <text x="32" y="106" font-size="40" font-weight="700" fill="${GREEN}">+${comma(d.codeAdd)}</text>
+  <text x="34" y="130" font-size="12.5" fill="#B7ABC6">lines added</text>
+  <text x="300" y="106" font-size="40" font-weight="700" fill="${RED}">−${comma(d.codeDel)}</text>
+  <text x="302" y="130" font-size="12.5" fill="#B7ABC6">lines removed</text>
 
-  <line x1="520" y1="40" x2="520" y2="156" stroke="#EFE6F0" stroke-width="1.5"/>
+  <line x1="520" y1="42" x2="520" y2="136" stroke="#EFE6F0" stroke-width="1.5"/>
 
-  <g clip-path="url(#cbar)"><rect x="${barX}" y="64" width="${barW}" height="13" fill="${RED}"/><rect x="${barX}" y="64" width="${gw.toFixed(
+  <g clip-path="url(#cbar)"><rect x="${barX}" y="42" width="${barW}" height="12" fill="${RED}"/><rect x="${barX}" y="42" width="${gw.toFixed(
     1
-  )}" height="13" fill="${GREEN}"/></g>
-  <circle cx="558" cy="96" r="5" fill="${GREEN}"/><text x="570" y="100" font-size="13" fill="#5E5470">additions</text>
-  <circle cx="664" cy="96" r="5" fill="${RED}"/><text x="676" y="100" font-size="13" fill="#5E5470">deletions</text>
+  )}" height="12" fill="${GREEN}"/></g>
+  <circle cx="558" cy="76" r="4.5" fill="${GREEN}"/><text x="568" y="80" font-size="12" fill="#5E5470">additions</text>
+  <circle cx="660" cy="76" r="4.5" fill="${RED}"/><text x="670" y="80" font-size="12" fill="#5E5470">deletions</text>
 
-  <line x1="552" y1="116" x2="808" y2="116" stroke="#EFE6F0" stroke-width="1"/>
-  ${row(138, "files changed", comma(d.codeFiles), "#4A4060")}
-  <line x1="552" y1="152" x2="808" y2="152" stroke="#EFE6F0" stroke-width="1"/>
-  ${row(170, "net change", (net >= 0 ? "+" : "−") + comma(Math.abs(net)), net >= 0 ? GREEN : RED)}</svg>`;
+  <line x1="552" y1="94" x2="808" y2="94" stroke="#EFE6F0" stroke-width="1"/>
+  ${row(112, "files changed", comma(d.codeFiles), "#4A4060")}
+  <line x1="552" y1="124" x2="808" y2="124" stroke="#EFE6F0" stroke-width="1"/>
+  ${row(142, "net change", (net >= 0 ? "+" : "−") + comma(Math.abs(net)), net >= 0 ? GREEN : RED)}</svg>`;
 }
 
 // 履歴クエリの結果から、時間帯別コミットと直近1年のコード増減を集計

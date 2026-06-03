@@ -265,15 +265,13 @@ function buildWork(d) {
 
   // --- STATS ---
   const rows = [
-    ["stars", kfmt(d.totalStars)],
     ["commits", kfmt(d.commits)],
     ["pull requests", kfmt(d.prs)],
     ["issues", kfmt(d.issues)],
-    ["contributed to", kfmt(d.contributedTo)],
   ];
   let stats = "";
   rows.forEach(([k, v], i) => {
-    const y = 96 + i * 30;
+    const y = 110 + i * 44;
     stats += `<text x="600" y="${y}" font-size="13" fill="#8B8197">${k}</text><text x="808" y="${y}" text-anchor="end" font-size="15" font-weight="700" fill="#4A4060">${esc(
       v
     )}</text>`;

@@ -23,7 +23,7 @@ jobs:
         with:
           node-version: "20"
 
-      - name: stats.svg を生成
+      - name: カードを生成
         env:
           # MY_GITHUB_TOKEN（自分の PAT）があれば private リポジトリの活動も集計。
           # 無ければデフォルトトークン（public のみ）にフォールバック。
@@ -35,9 +35,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if [ -n "$(git status --porcelain stats.svg)" ]; then
-            git add stats.svg
-            git commit -m "chore: update stats.svg [skip ci]"
+          if [ -n "$(git status --porcelain cards)" ]; then
+            git add cards
+            git commit -m "chore: update profile cards [skip ci]"
             git push
           else
             echo "変更なし"

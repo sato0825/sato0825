@@ -172,8 +172,8 @@ function buildIdentity(d) {
   <line x1="540" y1="44" x2="540" y2="104" stroke="#EFE6F0" stroke-width="1.5"/>
   ${stat(588, repos, "repositories")}${stat(694, kfmt(d.followers), "followers")}${stat(
     790,
-    kfmt(d.totalStars),
-    "stars"
+    kfmt(d.totalContributions),
+    "contributions"
   )}</svg>`;
 }
 

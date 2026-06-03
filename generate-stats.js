@@ -27,6 +27,7 @@ query ($login: String!) {
     bio
     location
     createdAt
+    avatarUrl(size: 140)
     followers { totalCount }
     repositoriesContributedTo(first: 1, contributionTypes: [COMMIT, PULL_REQUEST, ISSUE, REPOSITORY]) {
       totalCount
@@ -79,6 +80,19 @@ async function graphql(query, variables) {
   const json = await res.json();
   if (json.errors) throw new Error(`GraphQL エラー: ${JSON.stringify(json.errors)}`);
   return json.data;
+}
+
+// アイコン画像を取得して data URI 化（GitHub は SVG 内の外部 URL を読まないため埋め込む）
+async function fetchAvatarDataUri(url) {
+  try {
+    const res = await fetch(url, { headers: { "User-Agent": "stats-generator" } });
+    if (!res.ok) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    const ct = res.headers.get("content-type") || "image/png";
+    return `data:${ct};base64,${buf.toString("base64")}`;
+  } catch {
+    return null;
+  }
 }
 
 // ---- ユーティリティ ----
@@ -138,11 +152,16 @@ function buildIdentity(d) {
       val
     )}</text><text x="${x}" y="94" text-anchor="middle" font-size="11" letter-spacing="0.5" fill="#B7ABC6">${label}</text>`;
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="840" height="148" viewBox="0 0 840 148"><defs>${DEFS}</defs>
-  <rect x="6" y="6" width="828" height="136" rx="26" fill="url(#card)" stroke="#EFE0EE" stroke-width="2" filter="url(#sh)"/>
-  <circle cx="64" cy="74" r="34" fill="#F6DCEC" stroke="#fff" stroke-width="3"/>
+  // アイコンが取れていれば円形クリップで埋め込み、無ければ手描きの顔にフォールバック
+  const avatar = d.avatar
+    ? `<image href="${d.avatar}" x="30" y="40" width="68" height="68" clip-path="url(#avt)" preserveAspectRatio="xMidYMid slice"/><circle cx="64" cy="74" r="34" fill="none" stroke="#fff" stroke-width="3"/>`
+    : `<circle cx="64" cy="74" r="34" fill="#F6DCEC" stroke="#fff" stroke-width="3"/>
   <circle cx="53" cy="71" r="3.2" fill="#8A6E86"/><circle cx="75" cy="71" r="3.2" fill="#8A6E86"/>
-  <path d="M55,81 Q64,90 73,81" stroke="#8A6E86" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  <path d="M55,81 Q64,90 73,81" stroke="#8A6E86" stroke-width="2.4" fill="none" stroke-linecap="round"/>`;
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="840" height="148" viewBox="0 0 840 148"><defs>${DEFS}<clipPath id="avt"><circle cx="64" cy="74" r="34"/></clipPath></defs>
+  <rect x="6" y="6" width="828" height="136" rx="26" fill="url(#card)" stroke="#EFE0EE" stroke-width="2" filter="url(#sh)"/>
+  ${avatar}
   <text x="116" y="64" font-size="29" font-weight="700" fill="#4A4060">${esc(d.name || d.login)}</text>
   <text x="116" y="88" font-size="13.5" fill="#8B8197">@${esc(d.login)}<tspan dx="10" fill="#B7ABC6">•</tspan><tspan dx="10">${esc(
     bio
@@ -353,7 +372,9 @@ function summarize(user) {
     const query = QUERY.replace("$userId", JSON.stringify(userId));
     const data = await graphql(query, { login: USER });
 
+    const avatar = await fetchAvatarDataUri(data.user.avatarUrl);
     const s = summarize(data.user);
+    s.avatar = avatar;
     if (!fs.existsSync("cards")) fs.mkdirSync("cards");
     fs.writeFileSync("cards/identity.svg", buildIdentity(s));
     fs.writeFileSync("cards/year.svg", buildYear(s));

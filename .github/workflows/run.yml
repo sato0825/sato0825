@@ -1,0 +1,45 @@
+name: Generate Stats
+
+on:
+  schedule:
+    # 毎日 UTC 18:00（日本時間 翌 3:00）に実行
+    - cron: "0 18 * * *"
+  workflow_dispatch: {} # 手動実行も可能
+  push:
+    branches: [main]
+    paths:
+      - "generate-stats.js"
+      - ".github/workflows/run.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: Node.js セットアップ
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: stats.svg を生成
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USER: ${{ github.repository_owner }}
+        run: node generate-stats.js
+
+      - name: 変更があればコミット
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain stats.svg)" ]; then
+            git add stats.svg
+            git commit -m "chore: update stats.svg [skip ci]"
+            git push
+          else
+            echo "変更なし"
+          fi

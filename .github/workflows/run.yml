@@ -11,6 +11,11 @@ on:
 permissions:
   contents: write
 
+# 実行が重なると git push が競合して落ちるため、同時実行は1本に絞る
+concurrency:
+  group: generate-stats
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest

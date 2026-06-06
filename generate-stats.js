@@ -78,7 +78,10 @@ query ($login: String!) {
 }
 `;
 
-async function graphql(query, variables) {
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function graphql(query, variables, attempt = 1) {
+  const MAX_ATTEMPTS = 4;
   const res = await fetch("https://api.github.com/graphql", {
     method: "POST",
     headers: {
@@ -88,7 +91,16 @@ async function graphql(query, variables) {
     },
     body: JSON.stringify({ query, variables }),
   });
-  if (!res.ok) throw new Error(`GitHub API エラー: ${res.status} ${await res.text()}`);
+  if (!res.ok) {
+    // 5xx は一時的なサーバー側エラー（502 Bad Gateway 等）。指数バックオフでリトライ。
+    if (res.status >= 500 && attempt < MAX_ATTEMPTS) {
+      const wait = 2 ** attempt * 1000;
+      console.warn(`GitHub API ${res.status}（${attempt}/${MAX_ATTEMPTS - 1} 回目）: ${wait}ms 後にリトライ`);
+      await sleep(wait);
+      return graphql(query, variables, attempt + 1);
+    }
+    throw new Error(`GitHub API エラー: ${res.status} ${await res.text()}`);
+  }
   const json = await res.json();
   if (json.errors) throw new Error(`GraphQL エラー: ${JSON.stringify(json.errors)}`);
   return json.data;

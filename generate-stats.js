@@ -47,6 +47,7 @@ query ($login: String!) {
     repositories(first: 100, ownerAffiliations: OWNER, isFork: false, orderBy: {field: PUSHED_AT, direction: DESC}) {
       totalCount
       nodes {
+        name
         stargazerCount
         languages(first: 8, orderBy: {field: SIZE, direction: DESC}) {
           edges { size node { name color } }
@@ -57,19 +58,16 @@ query ($login: String!) {
 }
 `;
 
-// 履歴は additions/deletions の差分計算が重いので、範囲を絞って別クエリで取得
-const HISTORY_QUERY = `
-query ($login: String!) {
-  user(login: $login) {
-    repositories(first: 40, ownerAffiliations: OWNER, isFork: false, orderBy: {field: PUSHED_AT, direction: DESC}) {
-      nodes {
-        defaultBranchRef {
-          target {
-            ... on Commit {
-              history(first: 50, author: {id: $userId}) {
-                nodes { committedDate additions deletions changedFiles }
-              }
-            }
+// 履歴は additions/deletions の差分計算が重いので、リポジトリごとに取得する。
+// 全リポジトリを一つのクエリに詰めると GitHub GraphQL が 502 を返すことがある。
+const HISTORY_REPO_QUERY = `
+query ($owner: String!, $name: String!, $userId: ID!) {
+  repository(owner: $owner, name: $name) {
+    defaultBranchRef {
+      target {
+        ... on Commit {
+          history(first: 50, author: {id: $userId}) {
+            nodes { committedDate additions deletions changedFiles }
           }
         }
       }
@@ -447,10 +445,17 @@ function summarize(user) {
     const query = QUERY.replace("$userId", JSON.stringify(userId));
     const data = await graphql(query, { login: USER });
 
-    // 履歴（additions/deletions）は重いので範囲を絞った別クエリで取得
-    const histQuery = HISTORY_QUERY.replace("$userId", JSON.stringify(userId));
-    const histData = await graphql(histQuery, { login: USER });
-    const commitStats = computeCommitStats(histData.user.repositories.nodes);
+    // 履歴（additions/deletions）は重いので、リポジトリごとの小さいクエリに分割する。
+    const historyNodes = [];
+    for (const repo of data.user.repositories.nodes) {
+      const histData = await graphql(HISTORY_REPO_QUERY, {
+        owner: USER,
+        name: repo.name,
+        userId,
+      });
+      historyNodes.push(histData.repository || {});
+    }
+    const commitStats = computeCommitStats(historyNodes);
 
     const avatar = await fetchAvatarDataUri(data.user.avatarUrl);
     const s = summarize(data.user);

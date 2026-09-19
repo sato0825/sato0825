@@ -30,9 +30,10 @@ jobs:
 
       - name: カードを生成
         env:
-          # MY_GITHUB_TOKEN（自分の PAT）があれば private リポジトリの活動も集計。
-          # 無ければデフォルトトークン（public のみ）にフォールバック。
-          GITHUB_TOKEN: ${{ secrets.MY_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          # Actions が発行するトークンを使う。無効化・期限切れした PAT を
+          # 優先すると、public リポジトリでも GraphQL が 401 で止まるため。
+          # このプロフィールは public 情報を集計するので、追加の Secret は不要。
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_USER: ${{ github.repository_owner }}
         run: node generate-stats.js
 
